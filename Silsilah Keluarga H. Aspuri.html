@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Silsilah Keluarga</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f8ff;
+      text-align: center;
+      padding: 20px;
+    }
+    h1 { color: #2c7; }
+    .tree {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: max-content;
+      max-width: none;
+    }
+    .generation, .children {
+      display: flex;
+      justify-content: flex-start;
+      margin: 20px 0;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      max-width: 100vw;
+      padding-bottom: 10px;
+    }
+    .person {
+      background: white;
+      border: 2px solid #2c7;
+      border-radius: 10px;
+      margin: 10px;
+      padding: 10px;
+      width: 120px;
+      position: relative;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      flex-shrink: 0;
+    }
+    .person img {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #2c7;
+      cursor: pointer;
+    }
+    .editable-name {
+      margin-top: 5px;
+      width: 100%;
+      min-height: 30px;
+      padding: 2px;
+      text-align: center;
+      border: none;
+      outline: none;
+      resize: none;
+      overflow-wrap: break-word;
+      word-break: break-word;
+      font-size: 14px;
+      line-height: 1.2em;
+    }
+    .label {
+      margin-top: 4px;
+      font-size: 12px;
+      color: #555;
+    }
+    .btn {
+      background: #2c7;
+      color: white;
+      padding: 5px 10px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    .btn:hover {
+      background: #258055;
+    }
+    .hidden { display: none; }
+    .delete-btn {
+      position: absolute;
+      top: 2px;
+      right: 4px;
+      background: red;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .anak-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 10px;
+      flex-shrink: 0;
+    }
+    .anak-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: nowrap;
+    }
+    #notif {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2c7;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: bold;
+      display: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      z-index: 9999;
+    }
+  </style>
+</head>
+<body>
+  <h1>Silsilah Keluarga Saya</h1>
+  <p>Klik gambar untuk menambahkan foto. Klik nama untuk mengedit.</p>
+
+  <div class="control-buttons" id="export-ignore">
+    <button class="btn" onclick="tambahAnak()">+ Tambah Anak</button>
+    <button class="btn" onclick="simpanData()">Simpan</button>
+    <button class="btn" onclick="exportPDF()">Export ke PDF</button>
+  </div>
+
+  <div id="silsilah-tree">
+    <div class="tree">
+      <div class="generation">
+        <div class="person">
+          <img src="" alt="Suami" id="img-suami1" onclick="uploadImage('img-suami1')">
+          <div class="editable-name" contenteditable="true">Suami</div>
+          <div class="label">Suami</div>
+        </div>
+        <div class="person">
+          <img src="" alt="Istri" id="img-istri1" onclick="uploadImage('img-istri1')">
+          <div class="editable-name" contenteditable="true">Istri</div>
+          <div class="label">Istri</div>
+        </div>
+      </div>
+      <div class="generation" id="anak-container"></div>
+    </div>
+  </div>
+
+  <input type="file" id="file-input" style="display: none;">
+  <div id="notif">Data berhasil disimpan</div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script>
+    function uploadImage(imgId) {
+      const input = document.getElementById('file-input');
+      input.click();
+      input.onchange = function () {
+        const file = input.files[0];
+        if (file && file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = function (e) {
+            const img = new Image();
+            img.onload = function () {
+              const canvas = document.createElement('canvas');
+              const maxSize = 300;
+              let width = img.width;
+              let height = img.height;
+
+              if (width > height && width > maxSize) {
+                height *= maxSize / width;
+                width = maxSize;
+              } else if (height > maxSize) {
+                width *= maxSize / height;
+                height = maxSize;
+              }
+
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, width, height);
+
+              const compressed = canvas.toDataURL('image/jpeg', 0.8);
+              document.getElementById(imgId).src = compressed;
+              simpanData();
+            };
+            img.src = e.target.result;
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+    }
+
+    function tambahAnak() {
+      const container = document.getElementById("anak-container");
+      const wrapper = document.createElement("div");
+      wrapper.className = "anak-wrapper";
+
+      const row = document.createElement("div");
+      row.className = "anak-row";
+
+      const timestamp = Date.now();
+      const anakId = `anak-${timestamp}`;
+      const pasanganId = `pasangan-${timestamp}`;
+      const cucuContainerId = `${anakId}-children`;
+
+      row.innerHTML = `
+        <div class="person" id="${anakId}" data-type="anak">
+          <button class="delete-btn" onclick="hapusElemen(this)">×</button>
+          <img src="" id="img-${anakId}" onclick="uploadImage('img-${anakId}')">
+          <div class="editable-name" contenteditable="true">Anak</div>
+          <div class="label"></div>
+        </div>
+        <div class="person hidden" id="${pasanganId}" data-type="pasangan">
+          <button class="delete-btn" onclick="hapusElemen(this)">×</button>
+          <img src="" id="img-${pasanganId}" onclick="uploadImage('img-${pasanganId}')">
+          <div class="editable-name" contenteditable="true">Pasangan</div>
+          <div class="label"></div>
+        </div>
+      `;
+
+      const tombolPasangan = document.createElement("button");
+      tombolPasangan.className = "btn pasangan-btn";
+      tombolPasangan.textContent = "+ Pasangan Anak";
+      tombolPasangan.onclick = function () {
+        document.getElementById(pasanganId).classList.remove("hidden");
+        document.getElementById(`btn-${cucuContainerId}`).classList.remove("hidden");
+        tombolPasangan.remove();
+      };
+
+      const cucuContainer = document.createElement("div");
+      cucuContainer.className = "children hidden";
+      cucuContainer.id = cucuContainerId;
+
+      const btnCucu = document.createElement("button");
+      btnCucu.className = "btn hidden cucu-btn";
+      btnCucu.textContent = "+ Tambah Cucu";
+      btnCucu.id = `btn-${cucuContainerId}`;
+      btnCucu.onclick = function () {
+        tambahCucu(cucuContainerId);
+      };
+
+      wrapper.appendChild(row);
+      wrapper.appendChild(tombolPasangan);
+      wrapper.appendChild(cucuContainer);
+      wrapper.appendChild(btnCucu);
+      container.appendChild(wrapper);
+
+      updateLabelAnak();
+      simpanData();
+    }
+
+    function tambahCucu(containerId) {
+      const container = document.getElementById(containerId);
+      const index = container.children.length + 1;
+      const cucuId = `${containerId}-cucu${index}`;
+
+      const div = document.createElement("div");
+      div.className = "person";
+      div.id = cucuId;
+      div.innerHTML = `
+        <button class="delete-btn" onclick="hapusElemen(this)">×</button>
+        <img src="" id="img-${cucuId}" onclick="uploadImage('img-${cucuId}')">
+        <div class="editable-name" contenteditable="true">Cucu</div>
+        <div class="label">Cucu</div>
+      `;
+
+      container.classList.remove("hidden");
+      container.appendChild(div);
+      simpanData();
+    }
+
+    function hapusElemen(button) {
+      if (confirm('Yakin ingin menghapus anggota keluarga ini?')) {
+        const personDiv = button.closest(".person");
+        const wrapper = personDiv.closest(".anak-wrapper");
+
+        if (personDiv.dataset.type === "anak") {
+          wrapper.remove();
+          updateLabelAnak();
+        } else {
+          const cucuBtn = wrapper.querySelector(".cucu-btn");
+          const pasanganBtn = document.createElement("button");
+          pasanganBtn.className = "btn pasangan-btn";
+          pasanganBtn.textContent = "+ Pasangan Anak";
+          pasanganBtn.onclick = function () {
+            personDiv.classList.remove("hidden");
+            cucuBtn.classList.remove("hidden");
+            pasanganBtn.remove();
+          };
+          wrapper.insertBefore(pasanganBtn, cucuBtn);
+          personDiv.remove();
+        }
+        simpanData();
+      }
+    }
+
+    function updateLabelAnak() {
+      const anakWrappers = document.querySelectorAll("#anak-container .anak-wrapper");
+      anakWrappers.forEach((wrapper, index) => {
+        const anakDiv = wrapper.querySelector('.person[data-type="anak"]');
+        const pasanganDiv = wrapper.querySelector('.person[data-type="pasangan"]');
+        anakDiv.querySelector('.label').textContent = `Anak ${index + 1}`;
+        if (pasanganDiv) {
+          pasanganDiv.querySelector('.label').textContent = `Pasangan Anak ${index + 1}`;
+        }
+      });
+    }
+
+    function simpanData() {
+      const html = document.querySelector("#silsilah-tree").innerHTML;
+      localStorage.setItem("silsilah_keluarga", html);
+      const notif = document.getElementById("notif");
+      notif.style.display = "block";
+      setTimeout(() => { notif.style.display = "none"; }, 2000);
+    }
+
+    function loadData() {
+      const saved = localStorage.getItem("silsilah_keluarga");
+      if (saved) {
+        document.querySelector("#silsilah-tree").innerHTML = saved;
+        attachEvents();
+      }
+    }
+
+    function attachEvents() {
+      document.querySelectorAll('img').forEach(img => {
+        img.onclick = () => uploadImage(img.id);
+      });
+      document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.onclick = () => hapusElemen(btn);
+      });
+    }
+
+    function exportPDF() {
+      const element = document.getElementById("silsilah-tree");
+      const controlButtons = document.getElementById("export-ignore");
+
+      controlButtons.style.display = "none";
+
+      const opt = {
+        margin:       [0.5, 0.5, 0.5, 0.5],
+        filename:     'silsilah-keluarga.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
+        jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' },
+        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+      };
+
+      html2pdf().set(opt).from(element).save().then(() => {
+        controlButtons.style.display = "flex";
+      });
+    }
+
+    window.onload = loadData;
+  </script>
+</body>
+</html>
